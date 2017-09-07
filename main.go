@@ -3,10 +3,12 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/dapine/fng"
 	_ "github.com/lib/pq"
 )
 
@@ -14,6 +16,8 @@ type Link struct {
 	short string
 	url   string
 }
+
+const ShortLength = 7
 
 func main() {
 	mux := http.NewServeMux()
@@ -25,7 +29,30 @@ func main() {
 
 func handlerLink(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		fmt.Fprint(w, "Index")
+		html := `
+		<!DOCTYPE html>
+		<html>
+			<head>
+				<meta charset="utf-8">
+				<title>curto - url shortener</title>
+				<style>
+				/* TODO: Add awesome style */
+				</style>
+			</head>
+			<body>
+				<div class="content">
+					<h1>curto - url shortener</h1>
+
+					<form action="/new" method="POST">
+						<label>Paste your URL here</label>
+						<input type="text">
+						<input type="submit" value="Short it">
+					</form>
+				</div>
+			</body>
+		</html>
+		`
+		fmt.Fprint(w, html)
 	} else {
 		db, err := openDB()
 		if err != nil {
@@ -53,6 +80,26 @@ func openDB() (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func NewLink(url string) (Link, error) {
+	r, err := http.Get(url)
+	if err != nil {
+		return Link{}, err
+	}
+	defer r.Body.Close()
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return Link{}, err
+	}
+
+	sl, err := fng.GenerateString(b, fng.Charset, ShortLength)
+	if err != nil {
+		return Link{}, err
+	}
+
+	return Link{short: sl, url: url}, nil
 }
 
 func InsertLink(db *sql.DB, l Link) error {
