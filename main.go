@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	_ "github.com/lib/pq"
@@ -15,20 +16,39 @@ type Link struct {
 }
 
 func main() {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", handlerLink)
+
+	log.Fatal(http.ListenAndServe(":5000", mux))
+}
+
+func handlerLink(w http.ResponseWriter, r *http.Request) {
+	db, err := openDB()
+	if err != nil {
+		fmt.Fprintf(w, "%s", err)
+	}
+
+	short := r.URL.Path[1:]
+
+	l, err := QueryLink(db, short)
+	if err != nil {
+		fmt.Fprint(w, "Not found")
+	}
+
+	fmt.Fprintf(w, "short: %s - url: %s", l.short, l.url)
+}
+
+func openDB() (*sql.DB, error) {
 	userdb := os.Getenv("USERDB")
 	dbname := os.Getenv("DBNAME")
 
 	db, err := sql.Open("postgres", fmt.Sprintf("user=%s dbname=%s", userdb, dbname))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	l, err := QueryLink(db, "abc")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println(l)
+	return db, nil
 }
 
 func InsertLink(db *sql.DB, l Link) error {
