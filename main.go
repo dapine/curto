@@ -24,19 +24,23 @@ func main() {
 }
 
 func handlerLink(w http.ResponseWriter, r *http.Request) {
-	db, err := openDB()
-	if err != nil {
-		fmt.Fprintf(w, "%s", err)
+	if r.URL.Path == "/" {
+		fmt.Fprint(w, "Index")
+	} else {
+		db, err := openDB()
+		if err != nil {
+			fmt.Fprintf(w, "%s", err)
+		}
+
+		short := r.URL.Path[1:]
+
+		l, err := QueryLink(db, short)
+		if err != nil {
+			fmt.Fprint(w, "Not found")
+		}
+
+		http.Redirect(w, r, l.url, http.StatusMovedPermanently)
 	}
-
-	short := r.URL.Path[1:]
-
-	l, err := QueryLink(db, short)
-	if err != nil {
-		fmt.Fprint(w, "Not found")
-	}
-
-	fmt.Fprintf(w, "short: %s - url: %s", l.short, l.url)
 }
 
 func openDB() (*sql.DB, error) {
@@ -70,7 +74,7 @@ func QueryLink(db *sql.DB, short string) (Link, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		err = rows.Scan(&s, &url)
+		err := rows.Scan(&s, &url)
 		if err != nil {
 			return Link{}, err
 		}
