@@ -23,6 +23,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handlerLink)
+	mux.HandleFunc("/new", handlerNew)
 
 	log.Fatal(http.ListenAndServe(":5000", mux))
 }
@@ -45,7 +46,7 @@ func handlerLink(w http.ResponseWriter, r *http.Request) {
 
 					<form action="/new" method="POST">
 						<label>Paste your URL here</label>
-						<input type="text">
+						<input type="text" name="link">
 						<input type="submit" value="Short it">
 					</form>
 				</div>
@@ -70,11 +71,34 @@ func handlerLink(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handlerNew(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+
+	link := r.FormValue("link")
+
+	db, err := openDB()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	l, err := NewLink(link)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = InsertLink(db, l)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Fprintf(w, "Your link is %s", l.short)
+}
+
 func openDB() (*sql.DB, error) {
 	userdb := os.Getenv("USERDB")
 	dbname := os.Getenv("DBNAME")
 
-	db, err := sql.Open("postgres", fmt.Sprintf("user=%s dbname=%s", userdb, dbname))
+	db, err := sql.Open("postgres", fmt.Sprintf("user=%s dbname=%s sslmode=disable", userdb, dbname))
 	if err != nil {
 		return nil, err
 	}
